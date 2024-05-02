@@ -1,0 +1,166 @@
+{
+  "contentType": "application/vnd.gorules.decision",
+  "nodes": [
+    {
+      "id": "0b33f925-0ca9-46fd-ba70-648759ad8ab0",
+      "name": "AttendanceWorkflow",
+      "type": "inputNode",
+      "position": {
+        "x": 60,
+        "y": 45
+      }
+    },
+    {
+      "id": "b19723d6-966b-483d-a600-2f3be7de95ec",
+      "name": "AttendanceResult",
+      "type": "outputNode",
+      "position": {
+        "x": 1770,
+        "y": -65
+      }
+    },
+    {
+      "id": "db5417ee-1fe7-4b75-b252-3e97397a7083",
+      "name": "AttendanceSettings",
+      "type": "expressionNode",
+      "content": {
+        "expressions": [
+          {
+            "id": "63a4d8ae-8caa-4a27-936a-5d7d64118a85",
+            "key": "shift.general.shiftStartHour",
+            "value": "9"
+          },
+          {
+            "id": "c9512106-712b-489b-8c11-ad986f26199e",
+            "key": "shift.general.gracetime",
+            "value": "15"
+          },
+          {
+            "id": "3d0c19d9-98ae-44d6-9a39-afc2a8458230",
+            "key": "shift.night.shiftStartHour",
+            "value": "14"
+          },
+          {
+            "id": "a38839fd-16d4-456a-b94a-c49f6179a56d",
+            "key": "shift.night.gracetime",
+            "value": "10"
+          },
+          {
+            "id": "fc156853-8ada-4c5d-a637-bd6856e7b299",
+            "key": "shift.general.workinghour",
+            "value": "9"
+          },
+          {
+            "id": "5a196eda-657f-4d5b-8100-645a4c410ec2",
+            "key": "shift.night.workinghour",
+            "value": "10"
+          }
+        ]
+      },
+      "position": {
+        "x": 445,
+        "y": 190
+      }
+    },
+    {
+      "id": "014db04d-844c-499c-9401-ada8e15ee0dc",
+      "name": "late Mark",
+      "type": "functionNode",
+      "content": "const handler = (input, { dayjs, Big }) => {\n  const { employee } = input;\n  const lateStreak = {};\n  let lateCount = 0; // Use a more descriptive variable name\n\n  // Initialize lateStreak and check for 'Present' records in a single loop\n  for (const record of employee.attendance) {\n    if (record.status !== 'Present') continue;\n\n    const shift = record.shift;\n    lateStreak[shift] = lateStreak[shift] || { count: 0, isGraceTime: true }; // Use logical OR for initialization\n\n    const shiftStartHour = input.shift[record.shift].shiftStartHour;\n\n    let hour = parseInt(record.inTime.split(':')[0]);\n    let minute = parseInt(record.inTime.split(':')[1]);\n    let gracePeriodEndHour = shiftStartHour + Math.floor(input.shift[record.shift].gracetime / 60);\n    let gracePeriodEndMinute = input.shift[record.shift].gracetime % 60;\n    console.log(input.shift[record.shift])\n\n    const isGracePeriod = dayjs(record.date).month() === 2 ? true : lateStreak[shift].isGraceTime; // Use existing isGraceTime\n\n    const arrivalTime = hour * 60 + minute;\n\n    // Calculate grace period end time in minutes\n    let gracePeriodEnd = shiftStartHour * 60 + gracePeriodEndMinute;\n\n    console.log(gracePeriodEndMinute)\n\n    record.isLate = arrivalTime > gracePeriodEnd;\n    record.arrivalTime = dayjs(record.date + record.inTime, \"HH:mm\");\n    record.gracePeriodEnd = gracePeriodEnd;\n    if (record.isLate) {\n      lateStreak[shift].count++;\n      if (lateStreak[shift].count === 3) {\n        lateCount++;\n        lateStreak[shift].count = 0;\n        lateStreak[shift].isGraceTime = false;\n      }\n    } else {\n      lateStreak[shift].count = 0;\n    }\n  }\n\n  //return { latecount: lateCount, ...employee };\n  return {\n    employee: {\n      id: employee.id,\n      name: employee.name,\n      attendance: employee.attendance,\n    },\n    latecount: lateCount,\n  };\n\n};\n",
+      "position": {
+        "x": 405,
+        "y": -100
+      }
+    },
+    {
+      "id": "781e5239-de94-4435-89a9-68a6bda85135",
+      "name": "Invalid Punch Rule",
+      "type": "functionNode",
+      "content": "const handler = (input, {  }) => {\n  const { employee } = input;\n\n\n\n  let countInvalidPunches = 0; // Use a more descriptive variable name\n\n  for (const record of employee.attendance) {\n    if (record.status !== 'Present') continue;\n    if (!record.inTime || !record.outTime) {\n      record.invalid = true;\n    } else {\n      record.invalid = false;\n    }\n  }\n  return {\n    employee: {\n      id: employee.id,\n      name: employee.name,\n      attendance: employee.attendance,\n    }\n  };\n\n};\n",
+      "position": {
+        "x": 725,
+        "y": -105
+      }
+    },
+    {
+      "id": "0cac46fe-a7df-42f9-bd95-32ebf6f52d39",
+      "name": "Unpunches Rule",
+      "type": "functionNode",
+      "content": "const handler = (input, { dayjs, Big }) => {\n  const { employee } = input;\n\n\n\n  for (const record of employee.attendance) {\n    if (record.status !== 'Present') {\n      record.unpunch = true;\n    } else {\n      record.unpunch = false;\n    }\n  }\n  return {\n    employee: {\n      id: employee.id,\n      name: employee.name,\n      attendance: employee.attendance,\n    }\n  };\n\n};\n",
+      "position": {
+        "x": 1025,
+        "y": -95
+      }
+    },
+    {
+      "id": "80648f78-9dee-4963-a6d9-e9ee9789c409",
+      "name": "FinalOUTPUT",
+      "type": "functionNode",
+      "content": "const handler = (input, { dayjs, Big }) => {\n  const { employee } = input;\n  let countInvalidPunches = 0; // Use a more descriptive variable name\n  let countunpunchPunches = 0; // Use a more descriptive variable name\n  let countlatePunches = 0; // Use a more descriptive variable name\n  let workinghourRules = 0; // Use a more descriptive variable name\n\n  for (const record of employee.attendance) {\n    if (record.unpunch == true) {\n      countunpunchPunches++;\n    }\n    if (record.invalid == true) {\n      countInvalidPunches++;\n    }\n    if (record.isLate == true) {\n      countlatePunches++;\n    }\n    if (record.workinghour == true) {\n      workinghourRules++;\n    }\n  }\n  return {\n    employee: {\n      InValidPunches: countInvalidPunches,\n      UnPunches: countunpunchPunches,\n      LateMark: countlatePunches,\n      WorkingHourRules: workinghourRules,\n      id: employee.id,\n      name: employee.name,\n      attendance: employee.attendance,\n\n    }\n  };\n\n};\n",
+      "position": {
+        "x": 1420,
+        "y": -105
+      }
+    },
+    {
+      "id": "d4ecc648-2e26-459c-905e-27bbaa11f71a",
+      "name": "Working Hour Rule",
+      "type": "functionNode",
+      "content": "/**\n * @param input\n * @param {{\n *  dayjs: import('dayjs')\n * }} helpers\n */\nconst handler = (input, { dayjs }) => {\n  const { employee } = input;\n\n  employee.attendance.forEach(record => {\n\n    if (record.inTime && record.outTime) {\n      const inTime = dayjs(new Date(`${record.date}T${record.inTime}:00`));\n      const outTime = dayjs(new Date(`${record.date}T${record.outTime}:00`));\n      if (outTime.diff(inTime, 'hour') >= input.shift[record.shift].workinghour) {\n        record.workinghour = false;\n      }\n      else {\n        record.workinghour = true;\n      }\n    }\n    else {\n      record.workinghour = true;\n    }\n  });\n\n  return {\n    employee: {\n      id: employee.id,\n      name: employee.name,\n      attendance: employee.attendance,\n    }\n  };\n\n}\n",
+      "position": {
+        "x": 930,
+        "y": 160
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "5fefdca0-75cd-4070-b444-e6d04f5d7d3d",
+      "type": "edge",
+      "sourceId": "db5417ee-1fe7-4b75-b252-3e97397a7083",
+      "targetId": "014db04d-844c-499c-9401-ada8e15ee0dc"
+    },
+    {
+      "id": "eb11ac3b-43b3-44af-bde2-2969eea8a94b",
+      "type": "edge",
+      "sourceId": "0b33f925-0ca9-46fd-ba70-648759ad8ab0",
+      "targetId": "014db04d-844c-499c-9401-ada8e15ee0dc"
+    },
+    {
+      "id": "5bbf624d-2613-4a07-b2a3-98eaf1f5825f",
+      "type": "edge",
+      "sourceId": "014db04d-844c-499c-9401-ada8e15ee0dc",
+      "targetId": "781e5239-de94-4435-89a9-68a6bda85135"
+    },
+    {
+      "id": "475a0aaa-7d60-43ef-b602-f2004f4c3ce3",
+      "type": "edge",
+      "sourceId": "781e5239-de94-4435-89a9-68a6bda85135",
+      "targetId": "0cac46fe-a7df-42f9-bd95-32ebf6f52d39"
+    },
+    {
+      "id": "1226ef72-8f7e-4ba4-a858-3a2e5f01ed99",
+      "type": "edge",
+      "sourceId": "0cac46fe-a7df-42f9-bd95-32ebf6f52d39",
+      "targetId": "d4ecc648-2e26-459c-905e-27bbaa11f71a"
+    },
+    {
+      "id": "62ffeedf-6eb8-4e04-b9e5-db0a0ac8088b",
+      "type": "edge",
+      "sourceId": "d4ecc648-2e26-459c-905e-27bbaa11f71a",
+      "targetId": "80648f78-9dee-4963-a6d9-e9ee9789c409"
+    },
+    {
+      "id": "ba2a4730-4865-4736-875d-d483feee43eb",
+      "type": "edge",
+      "sourceId": "80648f78-9dee-4963-a6d9-e9ee9789c409",
+      "targetId": "b19723d6-966b-483d-a600-2f3be7de95ec"
+    },
+    {
+      "id": "4177dada-f34a-4bf9-91a8-f697192d74dd",
+      "type": "edge",
+      "sourceId": "db5417ee-1fe7-4b75-b252-3e97397a7083",
+      "targetId": "d4ecc648-2e26-459c-905e-27bbaa11f71a"
+    }
+  ]
+}
